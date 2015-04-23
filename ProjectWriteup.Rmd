@@ -1,0 +1,101 @@
+---
+title: "Machine Learning Project"
+output: html_document
+---
+
+## Human Activity Recognition (HAR) Project
+HAR is an interesting application for computer learning. There are many pitfalls and complications facing the data collection, variable selection and data processing needed to make HAR useful and reliable. 
+
+### Building the Model
+Model building starts with examining the data set to see what parts can be useful and where they are located. This examination reveals several useless columns of NA and DIV/0 entries that are discarded for this analysis. Also a few instances of missing data for username = adelmo on the roll/pitch/yaw forearm sensor and for username = jeremy on the roll/pitch/yaw arm sensor. These too are discarded. It is apparent from examining the data that there are significant level differences in key sensor signals that require preprocessing or equalization so that the exercise activity can be separated from the instrumentation setup and possibly the user orientation. 
+
+The data consists of time series samples for six users conducting five classes of exercise. The exercise classes are defined in the following table:
+
+ Class    |  Definition
+----------|----------------
+   A      | Correct hand weight lift
+   B      | Failed lift with elbow thrust forward
+   C      | Failed lift with only half raising the weight
+   D      | Failed lift with only half lowering the weight
+   E      | Failed lift with hips thrust forward
+
+A representative time series for user = carlitos is shown in the figure:
+
+```{r, echo=FALSE}
+Features<-function(Data,Cl,n)
+{
+  time<-Data[,3]
+  time<-time-min(time)
+  time<-time+Data[,4]*0.000001
+  tem<-levels(Data[,2])
+  Names<-names(Data)
+  TopLabel<-paste(" data for actor = ",tem[1])
+  plot(time,Data[,n],col=Cl,main=TopLabel,xlab="Time",ylab=Names[n])
+  return(data.frame(Max=max(Data[,n]),Min=min(Data[,n])))
+}
+
+Features(D2,Cl2,119)
+legend("topleft",legend=LETTERS[1:5],text.col=1:5)
+```
+
+### Testing Data Surprize!
+My first look at the testing data was a big eye opener. The data consists of only single time samples. The testing data should have been examined before building my model since all the work done to remove the user sensitivity and build the exercise selectivity will not work on single time samples. They need the whole time series.  
+
+So a new model was constructed to look only at single time samples. This is extremely sensitive to the data collection offsets, drifts, and user orientation. It appears that it is so sensitive to these biases that the class can be accurately determined for each user by using a random forest filter trained on all the valid data. The data dropouts are in this time since they are valid numerical data. This method accurately predicts the class without any measurable human activity! Not a good test of machine learning as it relates to real HAR work. 
+
+The following code shows the data removal and model training commands. 
+
+```{r eval=FALSE}
+tem<-training[,-c(1,3:7,12:36,50:59,69:83,87:101,103:112,125:139,141:150)]
+tem2<-testing[,-c(1,3:7,12:36,50:59,69:83,87:101,103:112,125:139,141:150)]
+modelFit3<-train(classe~.,data=tem,method="rf")
+predictions3<-predict(modelFit3,newdata=tem2[,-54])
+confusionMatrix(predictions3,testing$classe)
+
+
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 1674    0    0    0    0
+         B    0 1138    5    0    1
+         C    0    1 1020    3    1
+         D    0    0    1  961    0
+         E    0    0    0    0 1080
+
+Overall Statistics
+                                          
+               Accuracy : 0.998           
+                 95% CI : (0.9964, 0.9989)
+    No Information Rate : 0.2845          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9974          
+ Mcnemar's Test P-Value : NA              
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            1.0000   0.9991   0.9942   0.9969   0.9982
+Specificity            1.0000   0.9987   0.9990   0.9998   1.0000
+Pos Pred Value         1.0000   0.9948   0.9951   0.9990   1.0000
+Neg Pred Value         1.0000   0.9998   0.9988   0.9994   0.9996
+Prevalence             0.2845   0.1935   0.1743   0.1638   0.1839
+Detection Rate         0.2845   0.1934   0.1733   0.1633   0.1835
+Detection Prevalence   0.2845   0.1944   0.1742   0.1635   0.1835
+Balanced Accuracy      1.0000   0.9989   0.9966   0.9983   0.9991
+```
+
+An estimate for the model accuracy and out-of-sample error is made using a reserved random selection of the original data in the testing data frame. The resulting accuracy is 99.8% a high result.
+
+Finally, the 20 sample test data is introduced to get the model predictions. 
+
+```{r}
+Data3<-Data2In[,-c(1,3:7,12:36,50:59,69:83,87:101,103:112,125:139,141:150)]
+predict(modelFit3,Data3[-54])
+```
+
+###Summary
+Too bad that this exercise did not truly provide insight into HAR. It may possibly illustrate what not to do with machine learning. 
+
+
